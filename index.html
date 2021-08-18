@@ -260,14 +260,17 @@
   <script>
 
     const audio = document.getElementsByTagName("audio")[0]
+    const playIcon = document.querySelector("img[alt='play']")
 
     const setPlayerSong = (song) => {
       console.log(song)
 
       setPlayerInfos(song)
 
-      audio.src = song.preview
+      localStorage.setItem("songId", song.id)
+
       audio.play()
+      playIcon.src = "./playerbuttons/Pause.png"
     }
 
     const setPlayerInfos = (song) => {
@@ -282,28 +285,45 @@
       songTitle.innerText = song.title_short
       songAlbum.innerText = song.album.title
 
+      audio.src = song.preview
 
+      const currTime = document.querySelector(".player .currentTime")
+      const duration = document.querySelector(".player .duration")
+
+      currTime.innerText = "00:00"
+      duration.innerText = ("0" + Math.floor(song.duration / 60)).slice(-2) + ":" + ("0" + Math.floor(song.duration % 60)).slice(-2)
     }
 
     const handlePlay = () => {
-      if (audio.paused) {
-        audio.play()
+      if (audio.played.length > 0) {
+        if (audio.paused) {
+          playIcon.src = "./playerbuttons/Pause.png"
+          audio.play()
+        } else {
+          playIcon.src = "./playerbuttons/Play.png"
+          audio.pause()
+        }
       } else {
-        audio.pause()
+        playIcon.src = "./playerbuttons/Pause.png"
+        audio.play()
       }
     }
 
-    const handleProgressBarUpdate = () => {
+    const handleProgressBarUpdate = (ended = false) => {
       const progressBar = document.querySelector(".progress-bar")
       progressBar.style.width = (audio.currentTime / audio.duration) * 100 + "%"
-
-
-      const minutes = "0" + Math.floor(audio.currentTime / 60)
-      const seconds = "0" + Math.floor(audio.currentTime)
-
       const currTime = document.querySelector(".player .currentTime")
-      currTime.innerText = minutes.slice(-2) + ":" + seconds.slice(-2)
 
+      if (ended) {
+        progressBar.style.width = "0%"
+        playIcon.src = "./playerbuttons/Play.png"
+        currTime.innerText = "00:00"
+      } else {
+        const minutes = "0" + Math.floor(audio.currentTime / 60)
+        const seconds = "0" + Math.floor(audio.currentTime)
+
+        currTime.innerText = minutes.slice(-2) + ":" + seconds.slice(-2)
+      }
     }
 
     const handleProgressBarClick = event => {
@@ -316,6 +336,13 @@
     }
 
     audio.ontimeupdate = () => handleProgressBarUpdate()
+    audio.onended = () => handleProgressBarUpdate(true)
+
+    const handleChangeVolume = (event) => {
+      const volume = event.target.value / 100
+      localStorage.setItem("prevVolume", volume)
+      audio.volume = volume
+    }
 
     const isLoading = (loading) => {
       const spinner = document.querySelector(".spinner-border")
@@ -371,7 +398,7 @@
       })
         .then(response => response.json())
         .then(({ data }) => {
-          const songsInfo = data
+          const songsInfo = [...data]
           console.log(songsInfo)
 
           document.querySelector("#results > h2").innerText = query
@@ -388,6 +415,17 @@
 
             row.appendChild(col)
           })
+
+          const storageSongId = localStorage.getItem("songId")
+          const prevSong = songsInfo.find(song => song.id === parseInt(storageSongId))
+
+          if (storageSongId && prevSong) {
+            if (prevSong) {
+              setPlayerInfos(prevSong)
+            }
+          } else {
+            setPlayerInfos(songsInfo[0])
+          }
 
           isLoading(false)
         })
@@ -424,6 +462,18 @@
       "kanyewest",
     ];
 
+    window.addEventListener("DOMContentLoaded", () => {
+      const volumeRange = document.querySelector(".playerVolume input[type='range']")
+      volumeRange.addEventListener("change", handleChangeVolume)
+
+      const storageVolume = localStorage.getItem("prevVolume")
+
+      if (storageVolume) {
+        audio.volume = storageVolume
+        volumeRange.setAttribute("value", storageVolume * 100)
+      }
+    })
+
     window.onload = () => {
       search()
 
@@ -434,7 +484,6 @@
       document.getElementById("Rock").addEventListener("click", () => getSongsFromArr(rockArtists, "Rock"));
       document.getElementById("Pop").addEventListener("click", () => getSongsFromArr(popArtists, "Pop"));
       document.getElementById("Hip Hop").addEventListener("click", () => getSongsFromArr(hipHopArtists, "Hip Hop"));
-
     };
 
 
